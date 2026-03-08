@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import type { User } from "./types/user";
 import { usersApi } from "./api";
 import { useUsers } from "./hooks/useUsers";
 import { useToasts } from "./hooks/useToasts";
+import { useBreakpoint } from "./hooks/useBreakpoint";
 import { s } from "./styles";
 import { UserForm } from "./components/UserForm";
 import { UserRow } from "./components/UserRow";
@@ -14,18 +15,19 @@ import { Spinner } from "./components/Spinner";
 export default function App() {
   const { users, loading, load } = useUsers();
   const { list: toasts, push: toast } = useToasts();
+  const bp = useBreakpoint();
+  const isMobile = bp === "mobile";
 
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<User | null>(null);
   const [deleting, setDeleting] = useState<User | null>(null);
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({ nome: "", email: "" });
+  const [drawerOpen, setDrawerOpen] = useState(false); // controle do drawer mobile
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  // Carrega ao montar
   useEffect(() => { load(); }, [load]);
 
-  // Sincroniza form com usuário em edição
   useEffect(() => {
     setForm(editing
       ? { nome: editing.nome, email: editing.email }
@@ -33,6 +35,11 @@ export default function App() {
     );
     setTimeout(() => inputRef.current?.focus(), 50);
   }, [editing]);
+
+  // Abre o drawer ao iniciar edição no mobile
+  useEffect(() => {
+    if (isMobile && editing) setDrawerOpen(true);
+  }, [editing, isMobile]);
 
   const handleChange = (field: "nome" | "email", value: string) =>
     setForm((f) => ({ ...f, [field]: value }));
@@ -58,6 +65,7 @@ export default function App() {
 
       toast(editing ? `${form.nome} atualizado!` : `${form.nome} criado!`);
       setEditing(null);
+      setDrawerOpen(false);
       load();
     } catch (e) {
       toast((e as Error).message, "err");
@@ -73,7 +81,10 @@ export default function App() {
       await usersApi.delete(deleting.id);
       toast(`${deleting.nome} removido.`, "warn");
       setDeleting(null);
-      if (editing?.id === deleting.id) setEditing(null);
+      if (editing?.id === deleting.id) {
+        setEditing(null);
+        setDrawerOpen(false);
+      }
       load();
     } catch {
       toast("Erro ao remover.", "err");
@@ -87,23 +98,48 @@ export default function App() {
     u.email.toLowerCase().includes(search.toLowerCase())
   );
 
+  const mainStyle = isMobile ? s.mainMobile : bp === "tablet" ? s.mainTablet : s.main;
+
   return (
     <div style={s.root}>
-      {/* Sidebar com formulário */}
+
+      {/* ── Sidebar / Drawer ── */}
       <UserForm
         editing={editing}
         form={form}
         busy={busy}
+        bp={bp}
         inputRef={inputRef}
         totalUsers={users.length}
         onChange={handleChange}
         onSubmit={handleSubmit}
-        onCancel={() => setEditing(null)}
-        onDeleteClick={() => deleting && setDeleting(editing)}
+        onCancel={() => { setEditing(null); setDrawerOpen(false); }}
+        onDeleteClick={() => setDeleting(editing)}
+        mobileOpen={drawerOpen}
+        onMobileClose={() => setDrawerOpen(false)}
       />
 
-      {/* Área principal */}
-      <main style={s.main}>
+      {/* ── Conteúdo principal ── */}
+      <main style={mainStyle}>
+
+        {/* Header mobile com logo + contador inline */}
+        {isMobile && (
+          <div style={s.headerMobile}>
+            <div style={s.logoWrap}>
+              <div style={s.logoDot} />
+              <span style={s.logoText}>UserFlow</span>
+            </div>
+            <div style={{
+              background: "#111526", border: "1px solid #1c2236",
+              borderRadius: 10, padding: "6px 14px",
+              fontSize: 12, color: "#4b5675",
+            }}>
+              <span style={{ color: "#4f6ef7", fontWeight: 700 }}>{users.length}</span>
+              {" "}usuários
+            </div>
+          </div>
+        )}
+
         {/* Barra de busca */}
         <div style={s.toolbar}>
           <div style={s.searchWrap}>
@@ -118,15 +154,16 @@ export default function App() {
           <button style={s.btnRefresh} onClick={load} title="Recarregar">↻</button>
         </div>
 
-        {/* Lista de usuários */}
+        {/* Lista */}
         <div style={s.listWrap}>
           {loading ? (
-            <EmptyState icon={<Spinner size={32} />} title="Carregando…" />
+            <EmptyState bp={bp} icon={<Spinner size={32} />} title="Carregando…" />
           ) : filtered.length === 0 ? (
             <EmptyState
+              bp={bp}
               icon={search ? "🔍" : "👤"}
               title={search ? "Nenhum resultado" : "Nenhum usuário ainda"}
-              sub={search ? "Tente outro termo." : "Crie o primeiro pelo painel."}
+              sub={search ? "Tente outro termo." : "Crie o primeiro pelo botão +"}
             />
           ) : (
             filtered.map((u, i) => (
@@ -135,6 +172,7 @@ export default function App() {
                 user={u}
                 selected={editing?.id === u.id}
                 index={i}
+                bp={bp}
                 onEdit={() => setEditing(u)}
                 onDelete={() => setDeleting(u)}
               />
@@ -143,19 +181,30 @@ export default function App() {
         </div>
       </main>
 
-      {/* Modal de confirmação de deleção */}
+      {/* ── FAB mobile — abre o drawer para criar ── */}
+      {isMobile && (
+        <button
+          style={s.fab}
+          onClick={() => { setEditing(null); setDrawerOpen(true); }}
+          title="Novo usuário"
+        >
+          +
+        </button>
+      )}
+
+      {/* ── Modal de confirmação ── */}
       {deleting && (
         <DeleteModal
           user={deleting}
           busy={busy}
+          bp={bp}
           onConfirm={handleDelete}
           onCancel={() => setDeleting(null)}
         />
       )}
 
-      {/* Notificações */}
-      <ToastStack toasts={toasts} />
+      {/* ── Toasts ── */}
+      <ToastStack toasts={toasts} bp={bp} />
     </div>
   );
 }
-

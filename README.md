@@ -33,11 +33,11 @@ A maioria das plataformas existentes oferece questões genéricas. O ConcursoSim
 
 | Funcionalidade | Status |
 |---|---|
-| Cadastro e login de usuário | ✅ Concluído |
-| Banco de questões por banca | ✅ Concluído |
-| Simulado cronometrado | ✅ Concluído |
+| Cadastro e login de usuário | 📋 Planejado  |
+| Banco de questões por banca | 📋 Planejado  |
+| Simulado cronometrado | 📋  Planejado  |
 | Filtros por disciplina / banca / ano | ✅ Concluído |
-| Gabarito comentado | ✅ Concluído |
+| Gabarito comentado | 📋 Planejado |
 | Estatísticas de desempenho | 🔄 Em andamento |
 | Modo revisão de erros | 🔄 Em andamento |
 | Ranking entre usuários | 📋 Planejado |

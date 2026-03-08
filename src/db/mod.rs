@@ -20,6 +20,7 @@ pub async fn create_pool() -> Result<PgPool, sqlx::Error> {
     run_migrations(&pool).await?;
 
     tracing::info!("✅ Conexão com o banco de dados estabelecida");
+
     Ok(pool)
 }
 
